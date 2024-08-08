@@ -1,0 +1,600 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang1033{\fonttbl{\f0\fnil\fcharset0 Arial;}{\f1\fnil\fcharset0 Calibri;}{\f2\froman\fprq2\fcharset0 Times New Roman;}{\f3\froman\fprq2\fcharset0 Arial;}}
+{\colortbl ;\red0\green0\blue0;\red47\green47\blue47;\red255\green255\blue255;\red24\green128\blue56;}
+{\*\generator Riched20 10.0.19041}\viewkind4\uc1 
+\pard\sa200\sl276\slmult1\b\fs32\lang9 EXCERCISE 1: CONTROL STRUCTURES\f1\par
+\par
+\cf1\f2\fs26 Scenario 1: Apply a Discount to Loan Interest Rates for Customers Above 60 \fs28 Years Old\par
+
+\pard\hyphpar0\widctlpar\sl276\slmult1\cf0\b0\f3\fs26\lang1023 DECLARE\par
+    CURSOR c_customers IS\par
+        SELECT CustomerID, DOB\par
+        FROM Customers;\par
+    v_customer_id NUMBER;\par
+    v_dob DATE;\par
+    v_age NUMBER;\par
+BEGIN\par
+    OPEN c_customers;\par
+    LOOP\par
+        FETCH c_customers INTO v_customer_id, v_dob;\par
+        EXIT WHEN c_customers%NOTFOUND;\par
+\par
+        -- Calculate age\par
+        v_age := TRUNC(MONTHS_BETWEEN(SYSDATE, v_dob) / 12);\par
+\par
+        IF v_age > 60 THEN\par
+            UPDATE Loans\par
+            SET InterestRate = InterestRate * 0.99 -- 1% discount\par
+            WHERE CustomerID = v_customer_id;\par
+        END IF;\par
+    END LOOP;\par
+    CLOSE c_customers;\par
+END;\par
+
+\pard\sa200\sl276\slmult1 /\par
+\b\f2 Scenario 2: Promote Customers to VIP Status Based on Their Balance\par
+\b0 BEGIN\par
+    -- Cursor to fetch all customers with balance over $10,000\par
+    FOR rec IN (SELECT CUSTOMER_ID\par
+                FROM CUSTOMERS\par
+                WHERE BALANCE > 10000) \par
+    LOOP\par
+        -- Update the IsVIP flag to TRUE\par
+        UPDATE CUSTOMERS\par
+        SET IsVIP = TRUE\par
+        WHERE CUSTOMER_ID = rec.CUSTOMER_ID;\par
+        \par
+        -- Optionally, you can add a COMMIT if required by your use case\par
+        -- COMMIT;\par
+    END LOOP;\par
+END;\par
+
+\pard\hyphpar0\widctlpar\sl276\slmult1\qj\b\par
+\cf1 Scenario 3: Send Reminders to Customers Whose Loans Are Due Within the Next 30 Days\cf0\b0\f3\fs22\par
+\cf2\highlight3\f2\fs26 DECLARE\cf0\highlight0\f3\par
+\cf2\highlight3\f2     CURSOR c_loans IS\cf0\highlight0\f3\par
+\cf2\highlight3\f2         SELECT CustomerID, LoanID\cf0\highlight0\f3\par
+\cf2\highlight3\f2         FROM Loans\cf0\highlight0\f3\par
+\cf2\highlight3\f2         WHERE EndDate BETWEEN SYSDATE AND SYSDATE + 30;\cf0\highlight0\f3\par
+\cf2\highlight3\f2     v_customer_id NUMBER;\cf0\highlight0\f3\par
+\cf2\highlight3\f2     v_loan_id NUMBER;\cf0\highlight0\f3\par
+\cf2\highlight3\f2 BEGIN\cf0\highlight0\f3\par
+\cf2\highlight3\f2     OPEN c_loans;\cf0\highlight0\f3\par
+\cf2\highlight3\f2     LOOP\cf0\highlight0\f3\par
+\cf2\highlight3\f2         FETCH c_loans INTO v_customer_id, v_loan_id;\cf0\highlight0\f3\par
+\cf2\highlight3\f2         EXIT WHEN c_loans%NOTFOUND;\cf0\highlight0\f3\par
+\cf2\highlight3\f2\par
+        -- Print reminder message (replace with actual notification logic)\cf0\highlight0\f3\par
+\cf2\highlight3\f2         DBMS_OUTPUT.PUT_LINE('Reminder: Customer ' || v_customer_id || ' has loan ' || v_loan_id || ' due within 30 days.');\cf0\highlight0\f3\par
+\cf2\highlight3\f2     END LOOP;\cf0\highlight0\f3\par
+\cf2\highlight3\f2     CLOSE c_loans;\cf0\highlight0\f3\par
+\cf2\highlight3\f2 END;\cf0\highlight0\f3\par
+\cf2\highlight3\b\f2 /\par
+\fs32 EXCERCISE 2: ERROR HANDLING \fs26\par
+\cf1\highlight0\par
+Scenario 1: Handle Exceptions During Fund Transfers Between Accounts\par
+\b0 CREATE OR REPLACE PROCEDURE SafeTransferFunds(\par
+    p_from_account_id IN NUMBER,\par
+    p_to_account_id IN NUMBER,\par
+    p_amount IN NUMBER\par
+) AS\par
+    v_balance_from NUMBER;\par
+    v_balance_to NUMBER;\par
+BEGIN\par
+    -- Check if the source account exists\par
+    SELECT balance INTO v_balance_from\par
+    FROM Accounts\par
+    WHERE account_id = p_from_account_id\par
+    FOR UPDATE;\par
+\par
+    -- Check if the destination account exists\par
+    SELECT balance INTO v_balance_to\par
+    FROM Accounts\par
+    WHERE account_id = p_to_account_id\par
+    FOR UPDATE;\par
+\par
+    -- Ensure sufficient funds\par
+    IF v_balance_from < p_amount THEN\par
+        RAISE_APPLICATION_ERROR(-20001, 'Insufficient funds for transfer.');\par
+    END IF;\par
+\par
+    -- Perform the fund transfer\par
+    UPDATE Accounts\par
+    SET balance = balance - p_amount\par
+    WHERE account_id = p_from_account_id;\par
+\par
+    UPDATE Accounts\par
+    SET balance = balance + p_amount\par
+    WHERE account_id = p_to_account_id;\par
+\par
+    -- Commit the transaction\par
+    COMMIT;\par
+    \par
+EXCEPTION\par
+    WHEN NO_DATA_FOUND THEN\par
+        DBMS_OUTPUT.PUT_LINE('Error: One or both account IDs do not exist.');\par
+        ROLLBACK;\par
+    WHEN OTHERS THEN\par
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);\par
+        ROLLBACK;\par
+END SafeTransferFunds;\par
+\par
+\b Scenario 2: Manage Errors When Updating Employee Sal\par
+\b0 CREATE OR REPLACE PROCEDURE UpdateSalary(\par
+    p_employee_id IN NUMBER,\par
+    p_percentage IN NUMBER\par
+) AS\par
+    v_current_salary NUMBER;\par
+BEGIN\par
+    -- Fetch the current salary\par
+    SELECT salary INTO v_current_salary\par
+    FROM Employees\par
+    WHERE employee_id = p_employee_id\par
+    FOR UPDATE;\par
+\par
+    -- Update the salary\par
+    UPDATE Employees\par
+    SET salary = salary * (1 + p_percentage / 100)\par
+    WHERE employee_id = p_employee_id;\par
+\par
+    -- Commit the transaction\par
+    COMMIT;\par
+    \par
+EXCEPTION\par
+    WHEN NO_DATA_FOUND THEN\par
+        DBMS_OUTPUT.PUT_LINE('Error: Employee ID does not exist.');\par
+        ROLLBACK;\par
+    WHEN OTHERS THEN\par
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);\par
+        ROLLBACK;\par
+END UpdateSalary;\par
+\b Scenario 3: Ensure Data Integrity When Adding a New Customer\par
+\b0 CREATE OR REPLACE PROCEDURE AddNewCustomer(\par
+    p_customer_id IN NUMBER,\par
+    p_name IN VARCHAR2,\par
+    p_balance IN NUMBER\par
+) AS\par
+BEGIN\par
+    -- Attempt to insert the new customer\par
+    INSERT INTO Customers (customer_id, name, balance)\par
+    VALUES (p_customer_id, p_name, p_balance);\par
+\par
+    -- Commit the transaction\par
+    COMMIT;\par
+    \par
+EXCEPTION\par
+    WHEN DUP_VAL_ON_INDEX THEN\par
+        DBMS_OUTPUT.PUT_LINE('Error: A customer with the same ID already exists.');\par
+        ROLLBACK;\par
+    WHEN OTHERS THEN\par
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);\par
+        ROLLBACK;\par
+END AddNewCustomer;\par
+\par
+\b\fs32 EXCERCISE 3: STORED PROCEDURES\par
+\fs26\par
+Scenario 1: ProcessMonthlyInterest\par
+
+\pard\hyphpar0\widctlpar\sl276\slmult1\cf0\b0 CREATE PROCEDURE ProcessMonthlyInterest\f3\par
+\f2 AS\f3\par
+\f2 BEGIN\f3\par
+\f2     DECLARE @InterestRate DECIMAL(18,2) = 0.01; -- 1% interest rate\f3\par
+\f2\par
+    UPDATE SavingsAccounts\f3\par
+\f2     SET Balance = Balance + (Balance * @InterestRate);\f3\par
+
+\pard\hyphpar0\widctlpar\sl276\slmult1\qj\f2 END;\par
+\cf1\b\fs28 Scenario 2: UpdateEmployeeBonus\par
+
+\pard\hyphpar0\widctlpar\sl276\slmult1\cf0\b0\fs26 CREATE PROCEDURE UpdateEmployeeBonus\f3\par
+\f2     @DepartmentID INT,\f3\par
+\f2     @BonusPercentage DECIMAL(18,2)\f3\par
+\f2 AS\f3\par
+\f2 BEGIN\f3\par
+\f2     DECLARE @BonusMultiplier DECIMAL(18,2) = 1 + @BonusPercentage / 100;\f3\par
+\f2\par
+    UPDATE Employees\f3\par
+\f2     SET Salary = Salary * @BonusMultiplier\f3\par
+\f2     WHERE DepartmentID = @DepartmentID;\f3\par
+
+\pard\hyphpar0\widctlpar\sl276\slmult1\qj\f2 END;\f3\par
+
+\pard\hyphpar0\widctlpar\sl276\slmult1\cf4\f2\fs22\par
+\cf0\b\fs26 Scenario 3: TransferFunds\b0\f3\fs22\par
+\f2\fs26 CREATE PROCEDURE TransferFunds\f3\fs22\par
+\f2\fs26     @SourceAccountID INT,\f3\fs22\par
+\f2\fs26     @DestinationAccountID INT,\f3\fs22\par
+\f2\fs26     @Amount DECIMAL(18,2)\f3\fs22\par
+\f2\fs26 AS\f3\fs22\par
+\f2\fs26 BEGIN\f3\fs22\par
+\f2\fs26     BEGIN TRANSACTION;\f3\fs22\par
+\f2\fs26\par
+        -- Check source account balance\f3\fs22\par
+\f2\fs26         DECLARE @SourceBalance DECIMAL(18,2);\f3\fs22\par
+\f2\fs26         SELECT @SourceBalance = Balance FROM Accounts WHERE AccountID = @SourceAccountID;\f3\fs22\par
+\f2\fs26         IF @SourceBalance < @Amount\f3\fs22\par
+\f2\fs26             BEGIN\f3\fs22\par
+\f2\fs26                 RAISERROR('Insufficient funds in source account.', 16, 1);\f3\fs22\par
+\f2\fs26                 ROLLBACK TRANSACTION;\f3\fs22\par
+\f2\fs26                 RETURN;\f3\fs22\par
+\f2\fs24             END;\f3\fs22\par
+\f2\fs24\par
+        -- Update source account\f3\fs22\par
+\f2\fs24         UPDATE Accounts\f3\fs22\par
+\f2\fs24         SET Balance = Balance - @Amount\f3\fs22\par
+\f2\fs24         WHERE AccountID = @SourceAccountID;\f3\fs22\par
+\f2\fs24\par
+        -- Update destination account\f3\fs22\par
+\f2\fs24         UPDATE Accounts\f3\fs22\par
+\f2\fs24         SET Balance = Balance + @Amount\f3\fs22\par
+\f2\fs24         WHERE AccountID = @DestinationAccountID;\f3\fs22\par
+\f2\fs24\par
+    COMMIT TRANSACTION;\f3\fs22\par
+
+\pard\sa200\sl276\slmult1\f2\fs24 END;\par
+\b\fs32 EXCERCISE 4: FUNCTIONS\par
+\fs26\par
+Scenario 1: Calculate the Age of Customers\par
+\b0 CREATE OR REPLACE FUNCTION CalculateAge(\par
+    p_date_of_birth DATE\par
+) RETURN NUMBER IS\par
+    v_age NUMBER;\par
+BEGIN\par
+    -- Calculate age\par
+    SELECT FLOOR(MONTHS_BETWEEN(SYSDATE, p_date_of_birth) / 12)\par
+    INTO v_age\par
+    FROM dual;\par
+\par
+    RETURN v_age;\par
+EXCEPTION\par
+    WHEN OTHERS THEN\par
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);\par
+        RETURN NULL;\par
+END CalculateAge;\par
+\b Scenario 2: Compute the Monthly Installment for a Loan\par
+\b0 CREATE OR REPLACE FUNCTION CalculateMonthlyInstallment(\par
+    p_loan_amount NUMBER,\par
+    p_interest_rate NUMBER,\par
+    p_loan_duration_years NUMBER\par
+) RETURN NUMBER IS\par
+    v_monthly_installment NUMBER;\par
+    v_monthly_rate NUMBER;\par
+    v_total_months NUMBER;\par
+BEGIN\par
+    -- Convert annual interest rate to monthly and calculate total months\par
+    v_monthly_rate := p_interest_rate / 100 / 12;\par
+    v_total_months := p_loan_duration_years * 12;\par
+\par
+    -- Compute the monthly installment using the formula\par
+    IF v_monthly_rate > 0 THEN\par
+        v_monthly_installment := (p_loan_amount * v_monthly_rate) / \par
+                                 (1 - POWER(1 + v_monthly_rate, -v_total_months));\par
+    ELSE\par
+        v_monthly_installment := p_loan_amount / v_total_months;\par
+    END IF;\par
+\par
+    RETURN v_monthly_installment;\par
+EXCEPTION\par
+    WHEN OTHERS THEN\par
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);\par
+        RETURN NULL;\par
+END CalculateMonthlyInstallment;\par
+\b Scenario 3: Check if a Customer Has Sufficient Balance\par
+\b0 CREATE OR REPLACE FUNCTION HasSufficientBalance(\par
+    p_account_id NUMBER,\par
+    p_amount NUMBER\par
+) RETURN BOOLEAN IS\par
+    v_balance NUMBER;\par
+BEGIN\par
+    -- Fetch the balance of the specified account\par
+    SELECT balance INTO v_balance\par
+    FROM Accounts\par
+    WHERE account_id = p_account_id;\par
+\par
+    -- Check if the balance is sufficient\par
+    IF v_balance >= p_amount THEN\par
+        RETURN TRUE;\par
+    ELSE\par
+        RETURN FALSE;\par
+    END IF;\par
+EXCEPTION\par
+    WHEN NO_DATA_FOUND THEN\par
+        DBMS_OUTPUT.PUT_LINE('Error: Account ID does not exist.');\par
+        RETURN FALSE;\par
+    WHEN OTHERS THEN\par
+        DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);\par
+        RETURN FALSE;\par
+END HasSufficientBalance;\par
+\b\fs32 EXCERCISE 5: TRIGGERS\par
+\fs26 Scenario 1: Update last modified date\par
+
+\pard\hyphpar0\widctlpar\sl276\slmult1\b0 CREATE OR REPLACE TRIGGER UpdateCustomerLastModified\f3\par
+\f2 AFTER UPDATE ON Customers\f3\par
+\f2 FOR EACH ROW\f3\par
+\f2 BEGIN\f3\par
+\f2   UPDATE Customers\f3\par
+\f2   SET LastModified = SYSDATE\f3\par
+\f2   WHERE CustomerID = :OLD.CustomerID;\f3\par
+\f2 END;\f3\par
+
+\pard\sa200\sl276\slmult1\f2 /\par
+
+\pard\hyphpar0\widctlpar\sl276\slmult1\b Scenario 2: Maintain an audit log\b0\f3\fs22\par
+
+\pard\nowidctlpar\hyphpar0\f2\fs26 REATE TABLE AuditLog (\f3\fs22\par
+
+\pard\hyphpar0\widctlpar\sl276\slmult1\f2\fs26   AuditID NUMBER GENERATED ALWAYS AS IDENTITY,\f3\fs22\par
+\f2\fs26   TableName VARCHAR2(30),\f3\fs22\par
+\f2\fs26   PrimaryKeyValue NUMBER,\f3\fs22\par
+\f2\fs26   Operation VARCHAR2(10),\f3\fs22\par
+\f2\fs26   OldData VARCHAR2(4000),\f3\fs22\par
+\f2\fs26   NewData VARCHAR2(4000),\f3\fs22\par
+\f2\fs26   Timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP\f3\fs22\par
+\f2\fs26 );\f3\fs22\par
+\f2\fs26\par
+CREATE OR REPLACE TRIGGER LogTransaction\f3\fs22\par
+\f2\fs26 AFTER INSERT OR UPDATE OR DELETE ON Transactions\f3\fs22\par
+\f2\fs26 FOR EACH ROW\f3\fs22\par
+\f2\fs26 BEGIN\f3\fs22\par
+\f2\fs26   INSERT INTO AuditLog (TableName, PrimaryKeyValue, Operation, OldData, NewData)\f3\fs22\par
+\f2\fs26   VALUES (\f3\fs22\par
+\f2\fs26     'Transactions',\f3\fs22\par
+\f2\fs26     :OLD.TransactionID, -- Use :NEW.TransactionID for INSERT\f3\fs22\par
+\f2\fs26     CASE WHEN INSERTING THEN 'INSERT'\f3\fs22\par
+\f2\fs26          WHEN UPDATING THEN 'UPDATE'\f3\fs22\par
+\f2\fs26      \b     \b0 WHEN DELETING THEN 'DELETE'\f3\fs22\par
+\f2\fs26     END,\f3\fs22\par
+\f2\fs26     TO_CHAR(:OLD),\f3\fs22\par
+\f2\fs26     TO_CHAR(:NEW)\f3\fs22\par
+\f2\fs26   );\f3\fs22\par
+\f2\fs26 END;\f3\fs22\par
+
+\pard\sa200\sl276\slmult1\f2\fs26 /\par
+
+\pard\hyphpar0\widctlpar\sl276\slmult1\b Scenario 3: Enforce business rules on deposits and withdrawals\b0\f3\fs22\par
+\f2\fs26 CREATE OR REPLACE TRIGGER CheckTransactionRules\f3\fs22\par
+\f2\fs26 BEFORE INSERT OR UPDATE ON Transactions\f3\fs22\par
+\f2\fs26 FOR EACH ROW\f3\fs22\par
+\f2\fs26 BEGIN\f3\fs22\par
+\f2\fs26   IF :NEW.TransactionType = 'Withdrawal' THEN\f3\fs22\par
+\f2\fs26     IF :NEW.Amount > (SELECT Balance FROM Accounts WHERE AccountID = :NEW.AccountID) THEN\f3\fs22\par
+\f2\fs26       RAISE_APPLICATION_ERROR(-20005, 'Insufficient funds');\f3\fs22\par
+\f2\fs26     END IF;\f3\fs22\par
+\f2\fs26   ELSIF :NEW.TransactionType = 'Deposit' THEN\f3\fs22\par
+\f2\fs26     IF :NEW.Amount <= 0 THEN\f3\fs22\par
+\f2\fs26       RAISE_APPLICATION_ERROR(-20006, 'Invalid deposit amount');\f3\fs22\par
+\f2\fs26     END IF;\f3\fs22\par
+\f2\fs26   END IF;\f3\fs22\par
+\f2\fs26 END;\f3\fs22\par
+
+\pard\sa200\sl276\slmult1\f2\fs26 /\par
+\b\fs32 EXCERCISE 6: CURSORS\par
+\fs26 Scenario 1: Generate Monthly Statements for All Customers\par
+\b0 DECLARE\par
+    CURSOR cur_transactions IS\par
+        SELECT c.customer_id, c.name, t.transaction_id, t.transaction_date, t.amount\par
+        FROM Customers c\par
+        JOIN Transactions t ON c.customer_id = t.customer_id\par
+        WHERE EXTRACT(MONTH FROM t.transaction_date) = EXTRACT(MONTH FROM SYSDATE)\par
+        AND EXTRACT(YEAR FROM t.transaction_date) = EXTRACT(YEAR FROM SYSDATE);\par
+        \par
+    v_customer_id Customers.customer_id%TYPE;\par
+    v_name Customers.name%TYPE;\par
+    v_transaction_id Transactions.transaction_id%TYPE;\par
+    v_transaction_date Transactions.transaction_date%TYPE;\par
+    v_amount Transactions.amount%TYPE;\par
+BEGIN\par
+    FOR rec IN cur_transactions LOOP\par
+        -- Print customer statement\par
+        DBMS_OUTPUT.PUT_LINE('Customer ID: ' || rec.customer_id);\par
+        DBMS_OUTPUT.PUT_LINE('Name: ' || rec.name);\par
+        DBMS_OUTPUT.PUT_LINE('Transaction ID: ' || rec.transaction_id);\par
+        DBMS_OUTPUT.PUT_LINE('Transaction Date: ' || rec.transaction_date);\par
+        DBMS_OUTPUT.PUT_LINE('Amount: ' || rec.amount);\par
+        DBMS_OUTPUT.PUT_LINE('-------------------------------------');\par
+    END LOOP;\par
+END;\par
+\b Scenario 2: Apply Annual Fee to All Accounts\par
+\b0 DECLARE\par
+    CURSOR cur_accounts IS\par
+        SELECT account_id, balance\par
+        FROM Accounts;\par
+        \par
+    v_account_id Accounts.account_id%TYPE;\par
+    v_balance Accounts.balance%TYPE;\par
+    annual_fee NUMBER := 50; -- Example annual fee amount\par
+BEGIN\par
+    FOR rec IN cur_accounts LOOP\par
+        -- Deduct the annual fee from the account balance\par
+        UPDATE Accounts\par
+        SET balance = balance - annual_fee\par
+        WHERE account_id = rec.account_id;\par
+        \par
+        DBMS_OUTPUT.PUT_LINE('Annual fee applied to account ID: ' || rec.account_id);\par
+    END LOOP;\par
+    \par
+    -- Commit the transaction\par
+    COMMIT;\par
+END;\par
+\b Scenario 3: Update Interest Rates for All Loans\par
+\b0 DECLARE\par
+    CURSOR cur_loans IS\par
+        SELECT loan_id, interest_rate\par
+        FROM Loans;\par
+        \par
+    v_loan_id Loans.loan_id%TYPE;\par
+    v_interest_rate Loans.interest_rate%TYPE;\par
+    v_new_interest_rate NUMBER;\par
+BEGIN\par
+    FOR rec IN cur_loans LOOP\par
+        -- Determine new interest rate based on the new policy\par
+        v_new_interest_rate := rec.interest_rate + 0.02; -- Example policy: increase rate by 2%\par
+\par
+        -- Update the loan interest rate\par
+        UPDATE Loans\par
+        SET interest_rate = v_new_interest_rate\par
+        WHERE loan_id = rec.loan_id;\par
+        \par
+        DBMS_OUTPUT.PUT_LINE('Updated interest rate for loan ID: ' || rec.loan_id);\par
+    END LOOP;\par
+    \par
+    -- Commit the transaction\par
+    COMMIT;\par
+END;\par
+\b\fs32 EXCERCISE 7: PACKAGES\par
+\fs26 Scenario 1: Customer Management Package\par
+
+\pard\hyphpar0\widctlpar\sl276\slmult1\b0 CREATE OR REPLACE PACKAGE CustomerManagement AS\f3\fs22\par
+\f2\fs26   PROCEDURE AddCustomer (\f3\fs22\par
+\f2\fs26     p_customer_id NUMBER,\f3\fs22\par
+\f2\fs26     p_name VARCHAR2(100),\f3\fs22\par
+\f2\fs26     p_dob DATE,\f3\fs22\par
+\f2\fs26     p_balance NUMBER\f3\fs22\par
+\f2\fs26   );\f3\fs22\par
+\f2\fs26   PROCEDURE UpdateCustomer (\f3\fs22\par
+\f2\fs26     p_customer_id NUMBER,\f3\fs22\par
+\f2\fs26     p_name VARCHAR2(100),\f3\fs22\par
+\f2\fs26     p_dob DATE,\f3\fs22\par
+\f2\fs26     p_balance NUMBER\f3\fs22\par
+\f2\fs26   );\f3\fs22\par
+\f2\fs26   FUNCTION GetCustomerBalance (p_customer_id NUMBER) RETURN NUMBER;\f3\fs22\par
+\f2\fs26 END CustomerManagement;\f3\fs22\par
+\f2\fs26 /\f3\fs22\par
+\f2\fs26\par
+CREATE OR REPLACE PACKAGE BODY CustomerManagement AS\f3\fs22\par
+\f2\fs26   PROCEDURE AddCustomer (\f3\fs22\par
+\f2\fs26     p_customer_id NUMBER,\f3\fs22\par
+\f2\fs26     p_name VARCHAR2(100),\f3\fs22\par
+\f2\fs26     p_dob DATE,\f3\fs22\par
+\f2\fs26     p_balance NUMBER\f3\fs22\par
+\f2\fs26   )\f3\fs22\par
+\f2\fs26   IS\f3\fs22\par
+\f2\fs26   BEGIN\f3\fs22\par
+\f2\fs26     -- Insert customer into Customers table\f3\fs22\par
+\f2\fs26   END AddCustomer;\f3\fs22\par
+\f2\fs26\par
+  PROCEDURE UpdateCustomer (\f3\fs22\par
+\f2\fs26     p_customer_id NUMBER,\f3\fs22\par
+\f2\fs26     p_name VARCHAR2(100),\f3\fs22\par
+\f2\fs26     p_dob DATE,\f3\fs22\par
+\f2\fs26     p_balance NUMBER\f3\fs22\par
+\f2\fs26   )\f3\fs22\par
+\f2\fs26   IS\f3\fs22\par
+\f2\fs26   BEGIN\f3\fs22\par
+\f2\fs26     -- Update customer information in Customers table\f3\fs22\par
+\f2\fs26   END UpdateCustomer;\f3\fs22\par
+\f2\fs26\par
+  FUNCTION GetCustomerBalance (p_customer_id NUMBER) RETURN NUMBER\f3\fs22\par
+\f2\fs26   IS\f3\fs22\par
+\f2\fs26     v_balance NUMBER;\f3\fs22\par
+\f2\fs26   BEGIN\f3\fs22\par
+\f2\fs26     SELECT balance INTO v_balance\f3\fs22\par
+\f2\fs26     FROM Customers\f3\fs22\par
+\f2\fs26     WHERE CustomerID = p_customer_id;\f3\fs22\par
+\f2\fs26     RETURN v_balance;\f3\fs22\par
+\f2\fs26   EXCEPTION\f3\fs22\par
+\f2\fs26     WHEN NO_DATA_FOUND THEN\f3\fs22\par
+\f2\fs26       RETURN 0; -- Or handle the exception appropriately\f3\fs22\par
+\f2\fs26   END GetCustomerBalance;\f3\fs22\par
+\f2\fs26 END CustomerManagement;\f3\fs22\par
+
+\pard\sa200\sl276\slmult1\f2\fs26 /\par
+\b Scenario 2: Employee Management Package\par
+
+\pard\hyphpar0\widctlpar\sl276\slmult1\b0 CREATE OR REPLACE PACKAGE EmployeeManagement AS\f3\fs22\par
+\f2\fs26   PROCEDURE HireEmployee (\f3\fs22\par
+\f2\fs26     p_employee_id NUMBER,\f3\fs22\par
+\f2\fs26     p_name VARCHAR2(100),\f3\fs22\par
+\f2\fs26     p_position VARCHAR2(50),\f3\fs22\par
+\f2\fs26     p_salary NUMBER,\f3\fs22\par
+\f2\fs26     p_department VARCHAR2(50),\f3\fs22\par
+\f2\fs26     p_hire_date DATE\f3\fs22\par
+\f2\fs26   );\f3\fs22\par
+\f2\fs26   PROCEDURE UpdateEmployee (\f3\fs22\par
+\f2\fs26     p_employee_id NUMBER,\f3\fs22\par
+\f2\fs26     p_name VARCHAR2(100),\f3\fs22\par
+\f2\fs26     p_position VARCHAR2(50),\f3\fs22\par
+\f2\fs26     p_salary NUMBER,\f3\fs22\par
+\f2\fs26     p_department VARCHAR2(50)\f3\fs22\par
+\f2\fs26   );\f3\fs22\par
+\f2\fs26   FUNCTION CalculateAnnualSalary (p_employee_id NUMBER) RETURN NUMBER;\f3\fs22\par
+\f2\fs26 END EmployeeManagement;\f3\fs22\par
+\f2\fs26 /\f3\fs22\par
+\f2\fs26\par
+CREATE OR REPLACE PACKAGE BODY EmployeeManagement AS\f3\fs22\par
+\f2\fs26   PROCEDURE HireEmployee (\f3\fs22\par
+\f2\fs26     -- ...\f3\fs22\par
+\f2\fs26   )\f3\fs22\par
+\f2\fs26   IS\f3\fs22\par
+\f2\fs26   BEGIN\f3\fs22\par
+\f2\fs26     -- Insert employee into Employees table\f3\fs22\par
+\f2\fs26   END HireEmployee;\f3\fs22\par
+\f2\fs26\par
+  PROCEDURE UpdateEmployee (\f3\fs22\par
+\f2\fs26     -- ...\f3\fs22\par
+\f2\fs26   )\f3\fs22\par
+\f2\fs26   IS\f3\fs22\par
+\f2\fs26   BEGIN\f3\fs22\par
+\f2\fs26     -- Update employee information in Employees table\f3\fs22\par
+\f2\fs26   END UpdateEmployee;\f3\fs22\par
+\f2\fs26\par
+  FUNCTION CalculateAnnualSalary (p_employee_id NUMBER) RETURN NUMBER\f3\fs22\par
+\f2\fs26   IS\f3\fs22\par
+\f2\fs26     v_salary NUMBER;\f3\fs22\par
+\f2\fs26   BEGIN\f3\fs22\par
+\f2\fs26     SELECT salary INTO v_salary\f3\fs22\par
+\f2\fs26     FROM Employees\f3\fs22\par
+\f2\fs26     WHERE EmployeeID = p_employee_id;\f3\fs22\par
+\f2\fs26     RETURN v_salary * 12;\f3\fs22\par
+\f2\fs26   EXCEPTION\f3\fs22\par
+\f2\fs26     WHEN NO_DATA_FOUND THEN\f3\fs22\par
+\f2\fs26       RETURN 0; -- Or handle the exception appropriately\f3\fs22\par
+\f2\fs26   END CalculateAnnualSalary;\f3\fs22\par
+\f2\fs26 END EmployeeManagement;\f3\fs22\par
+\f2\fs26 /\f3\fs22\par
+
+\pard\sa200\sl276\slmult1\b\f2\fs26 Scenario 3: Account Operations Package\par
+
+\pard\hyphpar0\widctlpar\sl276\slmult1\b0 CREATE OR REPLACE PACKAGE AccountOperations AS\f3\fs22\par
+\f2\fs26   PROCEDURE OpenAccount (\f3\fs22\par
+\f2\fs26     p_account_id NUMBER,\f3\fs22\par
+\f2\fs26     p_customer_id NUMBER,\f3\fs22\par
+\f2\fs26     p_account_type VARCHAR2(20),\f3\fs22\par
+\f2\fs26     p_balance NUMBER\f3\fs22\par
+\f2\fs26   );\f3\fs22\par
+\f2\fs26   PROCEDURE CloseAccount (p_account_id NUMBER);\f3\fs22\par
+\f2\fs26   FUNCTION GetCustomerTotalBalance (p_customer_id NUMBER) RETURN NUMBER;\f3\fs22\par
+\f2\fs26 END AccountOperations;\f3\fs22\par
+\f2\fs26 /\f3\fs22\par
+\f2\fs26\par
+CREATE OR REPLACE PACKAGE BODY AccountOperations AS\f3\fs22\par
+\f2\fs26   PROCEDURE OpenAccount (\f3\fs22\par
+\f2\fs26     -- ...\f3\fs22\par
+\f2\fs26   )\f3\fs22\par
+\f2\fs26   IS\f3\fs22\par
+\f2\fs26   BEGIN\f3\fs22\par
+\f2\fs26     -- Insert account into Accounts table\f3\fs22\par
+\f2\fs26   END OpenAccount;\f3\fs22\par
+\f2\fs26\par
+  PROCEDURE CloseAccount (\f3\fs22\par
+\f2\fs26     -- ...\f3\fs22\par
+\f2\fs26   )\f3\fs22\par
+\f2\fs26   IS\f3\fs22\par
+\f2\fs26   BEGIN\f3\fs22\par
+\f2\fs26     -- Delete account from Accounts table\f3\fs22\par
+\f2\fs26   END CloseAccount;\f3\fs22\par
+\f2\fs26\par
+  FUNCTION GetCustomerTotalBalance (p_customer_id NUMBER) RETURN NUMBER\f3\fs22\par
+\f2\fs26   IS\f3\fs22\par
+\f2\fs26     v_total_balance NUMBER := 0;\f3\fs22\par
+\f2\fs26   BEGIN\f3\fs22\par
+\f2\fs26     SELECT SUM(balance) INTO v_total_balance\f3\fs22\par
+\f2\fs26     FROM Accounts\f3\fs22\par
+\f2\fs26   \b  \b0  WHERE CustomerID = p_customer_id;\f3\fs22\par
+\f2\fs26     RETURN v_total_balance;\f3\fs22\par
+\f2\fs26   END GetCustomerTotalBalance;\f3\fs22\par
+\f2\fs26 END AccountOperations;\f3\fs22\par
+\b\f2\fs26 /\b0\f3\fs22\par
+
+\pard\sa200\sl276\slmult1\b\f2\fs32\par
+}
+ 
